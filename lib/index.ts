@@ -36,30 +36,36 @@ export class Router implements Route {
 	method: string
 	url: string
 	constructor(url: string, method: string) {
-		this.url = url
-		this.method = method
+		this.url = url || 'none'
+		this.method = method || 'none'
 	}
 
 	handle(req: any, res: any): any {
 		// shallow clone current routes
 		const cloned = [...this.routes]
 		let cur = cloned.shift()
+		// todo: use this.url to help match route
 		while (cloned.length && !matches(req, cur))
 			cur = cloned.shift()
-		if (!cur)
-			return notfound(req, res)
-	
-		d(typeof cur)
 
-		// todo: handle subrouters gracefully
-		if (cur && cur.func.func)
-			cur.func.func(req, res)
-		// todo: handle routers and next here
-		// let idx = this.routes.indexOf(cur)
-		cur.func(req, res)
+		if (!cur)
+			notfound(req, res)
+		else
+			// todo: next()
+			// let idx = this.routes.indexOf(cur)
+			cur.func(req, res)
+	}
+
+	subroute = (router: Router): void => {
+		this.routes.push(router)
 	}
 
 	add = (method: string, url: string, func: Middleware): void => {
+		if (func instanceof Router) {
+			func.url = url
+			func.method = method
+			this.subroute(func)
+		}
 		this.routes.push({method, url, func})
 	}
 

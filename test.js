@@ -7,7 +7,8 @@ const sr = new sv.Router('/', 'GET')
 
 sr.get('/', (req, res) => res.send('router get'))
 
-app.get('/', sr)
+app.subroute(sr)
+app.get('/', sv)
 app.get('/', (req, res) => {
 	res.send('oi')
 })
