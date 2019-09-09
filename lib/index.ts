@@ -70,11 +70,8 @@ export class Router implements Route {
 	}
 
 	// if we're calling func, we're looking for a subrouter. handle this here
-	func = (req: any, res: any): void => {
-		const subrouters = this.routes.filter(route => {
-			console.log('oi', route)
-		})
-	}
+	func = handle
+	
 	get = this.add.bind(this, 'GET')
 	post = this.add.bind(this, 'POST')
 	put = this.add.bind(this, 'PUT')
