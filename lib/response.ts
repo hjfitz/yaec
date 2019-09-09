@@ -1,22 +1,20 @@
 import http from 'http'
 import debug from 'debug'
-import fs from 'fs'
-import mimeTypes from 'mime-types'
 
 import Request from './request'
 
-const d = debug('relay:Response')
+const d = debug('resp')
 
 export default class Response {
-	private _res: http.ServerResponse
-	private _req: Request
+	private hRes: http.ServerResponse
+	private hReq: Request
 
-	constructor(resp: http.ServerResponse, req: Request) {
-		this._res = resp
-		this._req = req
+	constructor(res: http.ServerResponse, req: Request) {
+		this.hRes = res
+		this.hReq = req
 		// default to plaintext response
-		this._res.setHeader('content-type', 'text/plain')
-		this._res.setHeader('Set-Cookie', ['set-by=ts-server', 'something-else=wasp'])
+		this.hRes.setHeader('content-type', 'text/plain')
+		this.hRes.setHeader('Set-Cookie', ['set-by=ts-server'])
 	}
 
 	/**
@@ -30,38 +28,15 @@ export default class Response {
 		encoding: string = 'utf8',
 		code: number = 200,
 	): void {
-		d('sending raw data', payload)
-		this._res.setHeader('Content-Type', type)
-		this._res.writeHead(code, { 'Content-Type': type })
-		this._res.write(payload, encoding, () => {
-			this._res.end('\n')
-			this._req._req.connection.destroy()
+		d(`sending ${type}; data: ${payload}`)
+		this.hRes.writeHead(code, {'Content-Type': type})
+		this.hRes.write(payload, encoding, () => {
+			this.hRes.end('\n')
+			this.hReq._req.connection.destroy()
 		})
 	}
 
-	/**
-	 * read a file and send it
-	 * @param filename file to read
-	 * @param encoding encoding to read the file in
-	 */
-	sendFile(filename: string, encoding: string = 'utf8'): void {
-		d('sending file')
-		d('calculating mime type')
-		const type = mimeTypes.lookup(filename) || undefined
-		d(`sending ${type}`)
-		const contents: string = fs.readFileSync(filename, {encoding}).toString()
-		this.send(contents, type, encoding)
-	}
-
-	/**
-	 * serialise an object and send it
-	 * @param payload object to send
-	 */
-	json(payload: object): void {
-		d('responding with JSON')
-		const serialised: string = JSON.stringify(payload)
-		this.send(serialised, 'application/json')
-	}
+	json = (payload: object): void => this.send(JSON.stringify(payload), 'application/json')
 
 	/**
 	 * Set a message and code, and end the connection
@@ -69,16 +44,10 @@ export default class Response {
 	 * @param message Message to optionally send
 	 */
 	sendStatus(code: number, message?: string): void {
-		if (message) {
-			this._res.statusMessage = message
-		}
+		if (message)
+			this.hRes.statusMessage = message
 		d(`Setting code to ${code}`)
-		this._res.statusCode = code
-		this._res.end()
-	}
-
-	end(): void {
-		d('closing connection')
-		this._res.destroy(new Error('Server closed the connection'))
+		this.hRes.statusCode = code
+		this.hRes.end()
 	}
 }

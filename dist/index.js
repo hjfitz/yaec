@@ -1,4 +1,17 @@
 "use strict";
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -54,6 +67,11 @@ var request_1 = __importDefault(require("./request"));
 var response_1 = __importDefault(require("./response"));
 var d = debug_1.default('serv');
 var matches = function (req, mw) {
+    d('handling match');
+    if (!mw)
+        return false;
+    d(req.url, mw.url);
+    d(req.method, mw.method);
     var urlMatches = (req.url === mw.url);
     var methodMatches = (req.method === mw.method) || mw.method === '*';
     return methodMatches && urlMatches;
@@ -67,40 +85,50 @@ var Router = /** @class */ (function () {
         this.add = function (method, url, func) {
             _this.routes.push({ method: method, url: url, func: func });
         };
-        this.func = this.handle;
+        // if we're calling func, we're looking for a subrouter. handle this here
+        this.func = function (req, res) {
+            var subrouters = _this.routes.filter(function (route) {
+                console.log('oi', route);
+            });
+        };
+        this.get = this.add.bind(this, 'GET');
+        this.post = this.add.bind(this, 'POST');
+        this.put = this.add.bind(this, 'PUT');
+        this.path = this.add.bind(this, 'PATCH');
+        this.delete = this.add.bind(this, 'DELETE');
+        this.head = this.add.bind(this, 'HEAD');
         this.url = url;
         this.method = method;
     }
     Router.prototype.handle = function (req, res) {
         // shallow clone current routes
         var cloned = __spreadArrays(this.routes);
-        var cur = cloned.pop();
-        while (cur && matches(req, cur))
-            cur = cloned.pop();
-        if (cur)
-            // todo: handle routers and next here
-            // let idx = this.routes.indexOf(cur)
-            cur.func(req, res);
-        else
-            notfound(req, res);
+        var cur = cloned.shift();
+        while (cloned.length && !matches(req, cur))
+            cur = cloned.shift();
+        if (!cur)
+            return notfound(req, res);
+        d(typeof cur);
+        // todo: handle subrouters gracefully
+        if (cur && cur.func.func)
+            cur.func.func(req, res);
+        // todo: handle routers and next here
+        // let idx = this.routes.indexOf(cur)
+        cur.func(req, res);
     };
     return Router;
 }());
-var Server = /** @class */ (function () {
+exports.Router = Router;
+var Server = /** @class */ (function (_super) {
+    __extends(Server, _super);
     function Server() {
-        var _this = this;
-        this.router = new Router('/', '*');
-        this.listen = function (port, cb) {
+        var _this = _super.call(this, '/', '*') || this;
+        _this.listen = function (port, cb) {
             _this.server.listen(port, cb);
         };
-        this.get = this.router.add.bind(this.router, 'GET');
-        this.post = this.router.add.bind(this.router, 'POST');
-        this.put = this.router.add.bind(this.router, 'PUT');
-        this.path = this.router.add.bind(this.router, 'PATCH');
-        this.delete = this.router.add.bind(this.router, 'DELETE');
-        this.head = this.router.add.bind(this.router, 'HEAD');
-        this.listener = this.listener.bind(this);
-        this.server = http_1.default.createServer(this.listener);
+        _this.listener = _this.listener.bind(_this);
+        _this.server = http_1.default.createServer(_this.listener);
+        return _this;
     }
     Server.prototype.listener = function (req, res) {
         return __awaiter(this, void 0, void 0, function () {
@@ -114,8 +142,7 @@ var Server = /** @class */ (function () {
                         parsedReq = _a.sent();
                         parsedRes = new response_1.default(res, parsedReq);
                         d('attempting to handle');
-                        console.log(this);
-                        this.router.handle(parsedReq, res);
+                        this.handle(parsedReq, parsedRes);
                         d('===END PARSE===');
                         return [2 /*return*/];
                 }
@@ -139,7 +166,7 @@ var Server = /** @class */ (function () {
         return parsedRequest.handleIncomingStream(headers['content-type']);
     };
     return Server;
-}());
+}(Router));
 function createServer() {
     return new Server();
 }

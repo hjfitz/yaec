@@ -15,7 +15,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var debug_1 = __importDefault(require("debug"));
 var querystring_1 = __importDefault(require("querystring"));
-var d = debug_1.default('relay:Request');
+var d = debug_1.default('rqst');
 function parseBoundary(type, body) {
     d('parsing form with boundary');
     var _a = type.split('='), delim = _a[1];
@@ -56,6 +56,7 @@ var parseCookies = function (dough) { return dough.map(function (pair) {
 var Request = /** @class */ (function () {
     function Request(options) {
         this.pathname = options.pathname || 'unknown';
+        this.url = options.pathname || 'unknown';
         this.headers = options.headers;
         this.method = options.method || 'unknown';
         this.code = options.statusCode || 200;

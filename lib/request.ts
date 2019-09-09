@@ -6,7 +6,7 @@ import http from 'http'
 import debug from 'debug'
 import querystring from 'querystring'
 
-const d = debug('relay:Request')
+const d = debug('rqst')
 
 export function parseBoundary(type: string, body: string): object {
 	d('parsing form with boundary')
@@ -58,6 +58,7 @@ interface IRequest {
 class Request {
 	_req: http.IncomingMessage
 	pathname: string
+	url: string
 	method: string
 	headers: http.IncomingHttpHeaders
 	code: number
@@ -67,6 +68,7 @@ class Request {
 
 	constructor(options: IRequest) {
 		this.pathname = options.pathname || 'unknown'
+		this.url = options.pathname || 'unknown'
 		this.headers = options.headers
 		this.method = options.method || 'unknown'
 		this.code = options.statusCode || 200

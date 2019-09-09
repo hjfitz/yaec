@@ -18,7 +18,11 @@ interface Route {
 	func: Middleware
 }
 
-const matches = (req: any, mw: Route): boolean => {
+const matches = (req: any, mw?: Route): boolean => {
+	d('handling match')
+	if (!mw) return false
+	d(req.url, mw.url)
+	d(req.method, mw.method)
 	const urlMatches = (req.url === mw.url)
 	const methodMatches = (req.method === mw.method) || mw.method === '*'
 	return methodMatches && urlMatches
@@ -27,7 +31,7 @@ const matches = (req: any, mw: Route): boolean => {
 const notfound: Middleware = (req, res) => res.sendStatus(404)
 
 // router can be a route as router.func should handle sub-routing
-class Router implements Route {
+export class Router implements Route {
 	routes: Route[] = []
 	method: string
 	url: string
@@ -39,30 +43,46 @@ class Router implements Route {
 	handle(req: any, res: any): any {
 		// shallow clone current routes
 		const cloned = [...this.routes]
-		let cur = cloned.pop()
-		while (cur && matches(req, cur))
-			cur = cloned.pop()
-		if (cur)
+		let cur = cloned.shift()
+		while (cloned.length && !matches(req, cur))
+			cur = cloned.shift()
+		if (!cur)
+			return notfound(req, res)
+	
+		d(typeof cur)
+
+		// todo: handle subrouters gracefully
+		if (cur && cur.func.func)
+			cur.func.func(req, res)
 		// todo: handle routers and next here
 		// let idx = this.routes.indexOf(cur)
-			cur.func(req, res)
-		else
-			notfound(req, res)
+		cur.func(req, res)
 	}
 
 	add = (method: string, url: string, func: Middleware): void => {
 		this.routes.push({method, url, func})
 	}
 
-	func = this.handle
+	// if we're calling func, we're looking for a subrouter. handle this here
+	func = (req: any, res: any): void => {
+		const subrouters = this.routes.filter(route => {
+			console.log('oi', route)
+		})
+	}
+	get = this.add.bind(this, 'GET')
+	post = this.add.bind(this, 'POST')
+	put = this.add.bind(this, 'PUT')
+	path = this.add.bind(this, 'PATCH')
+	delete = this.add.bind(this, 'DELETE')
+	head = this.add.bind(this, 'HEAD')
 }
 
 
-class Server {
+class Server extends Router {
 	private server: http.Server
-	router = new Router('/', '*')
 
 	constructor() {
+		super('/', '*')
 		this.listener = this.listener.bind(this)
 		this.server = http.createServer(this.listener)
 	}
@@ -78,8 +98,7 @@ class Server {
 		const parsedRes = new Response(res, parsedReq)
 
 		d('attempting to handle')
-		console.log(this)
-		this.router.handle(parsedReq, res)
+		this.handle(parsedReq, parsedRes)
 
 		d('===END PARSE===')
 	}
@@ -103,13 +122,6 @@ class Server {
 		// handleIncomingStream returns itself - resolve after handling
 		return parsedRequest.handleIncomingStream(headers['content-type'])
 	}
-
-	get = this.router.add.bind(this.router, 'GET')
-	post = this.router.add.bind(this.router, 'POST')
-	put = this.router.add.bind(this.router, 'PUT')
-	path = this.router.add.bind(this.router, 'PATCH')
-	delete = this.router.add.bind(this.router, 'DELETE')
-	head = this.router.add.bind(this.router, 'HEAD')
 }
 
 export default function createServer() {
