@@ -74,6 +74,7 @@ var matches = function (req, mw) {
     d(req.method, mw.method);
     var urlMatches = (req.url === mw.url);
     var methodMatches = (req.method === mw.method) || mw.method === '*';
+    d(methodMatches && urlMatches);
     return methodMatches && urlMatches;
 };
 var notfound = function (req, res) { return res.sendStatus(404); };
@@ -82,39 +83,51 @@ var Router = /** @class */ (function () {
     function Router(url, method) {
         var _this = this;
         this.routes = [];
+        this.subroute = function (router) {
+            _this.routes.push(router);
+        };
         this.add = function (method, url, func) {
+            if (func instanceof Router) {
+                d('subrouting...');
+                func.url = url;
+                func.method = method;
+                _this.subroute(func);
+                return;
+            }
             _this.routes.push({ method: method, url: url, func: func });
         };
         // if we're calling func, we're looking for a subrouter. handle this here
-        this.func = function (req, res) {
-            var subrouters = _this.routes.filter(function (route) {
-                console.log('oi', route);
-            });
-        };
+        this.func = this.handle;
         this.get = this.add.bind(this, 'GET');
         this.post = this.add.bind(this, 'POST');
         this.put = this.add.bind(this, 'PUT');
         this.path = this.add.bind(this, 'PATCH');
         this.delete = this.add.bind(this, 'DELETE');
         this.head = this.add.bind(this, 'HEAD');
-        this.url = url;
-        this.method = method;
+        this.url = url || 'none';
+        this.method = method || 'none';
     }
+    Router.prototype.next = function (req, res, routes) {
+        var _this = this;
+        return function () {
+            var r = new Router(_this.url, _this.method);
+            r.routes = routes;
+            r.handle(req, res);
+        };
+    };
     Router.prototype.handle = function (req, res) {
         // shallow clone current routes
         var cloned = __spreadArrays(this.routes);
         var cur = cloned.shift();
-        while (cloned.length && !matches(req, cur))
+        // todo: use this.url to help match route
+        while (cur && !matches(req, cur))
             cur = cloned.shift();
         if (!cur)
-            return notfound(req, res);
-        d(typeof cur);
-        // todo: handle subrouters gracefully
-        if (cur && cur.func.func)
-            cur.func.func(req, res);
-        // todo: handle routers and next here
-        // let idx = this.routes.indexOf(cur)
-        cur.func(req, res);
+            notfound(req, res);
+        else
+            // todo: next()
+            // let idx = this.routes.indexOf(cur)
+            cur.func(req, res, this.next(req, res, cloned));
     };
     return Router;
 }());

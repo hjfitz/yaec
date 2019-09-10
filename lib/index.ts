@@ -25,6 +25,7 @@ const matches = (req: any, mw?: Route): boolean => {
 	d(req.method, mw.method)
 	const urlMatches = (req.url === mw.url)
 	const methodMatches = (req.method === mw.method) || mw.method === '*'
+	d(methodMatches && urlMatches)
 	return methodMatches && urlMatches
 }
 
@@ -40,12 +41,20 @@ export class Router implements Route {
 		this.method = method || 'none'
 	}
 
+	next(req: any, res: any, routes: any[]) {
+		return () => {
+			const r = new Router(this.url, this.method)
+			r.routes = routes
+			r.handle(req, res)
+		}
+	}
+
 	handle(req: any, res: any): any {
 		// shallow clone current routes
 		const cloned = [...this.routes]
 		let cur = cloned.shift()
 		// todo: use this.url to help match route
-		while (cloned.length && !matches(req, cur))
+		while (cur && !matches(req, cur))
 			cur = cloned.shift()
 
 		if (!cur)
@@ -53,7 +62,7 @@ export class Router implements Route {
 		else
 			// todo: next()
 			// let idx = this.routes.indexOf(cur)
-			cur.func(req, res)
+			cur.func(req, res, this.next(req, res, cloned))
 	}
 
 	subroute = (router: Router): void => {
@@ -62,16 +71,18 @@ export class Router implements Route {
 
 	add = (method: string, url: string, func: Middleware): void => {
 		if (func instanceof Router) {
+			d('subrouting...')
 			func.url = url
 			func.method = method
 			this.subroute(func)
+			return
 		}
 		this.routes.push({method, url, func})
 	}
 
 	// if we're calling func, we're looking for a subrouter. handle this here
-	func = handle
-	
+	func = this.handle
+
 	get = this.add.bind(this, 'GET')
 	post = this.add.bind(this, 'POST')
 	put = this.add.bind(this, 'PUT')
