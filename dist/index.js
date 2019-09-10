@@ -70,14 +70,15 @@ var matches = function (req, mw) {
     d('handling match');
     if (!mw)
         return false;
-    d(req.url, mw.url);
-    d(req.method, mw.method);
+    d('req, mw', req.url, mw.url);
+    d('req, mw', req.method, mw.method);
     var urlMatches = (req.url === mw.url);
     var methodMatches = (req.method === mw.method) || mw.method === '*';
     d(methodMatches && urlMatches);
     return methodMatches && urlMatches;
 };
 var notfound = function (req, res) { return res.sendStatus(404); };
+var makeUrl = function () { };
 // router can be a route as router.func should handle sub-routing
 var Router = /** @class */ (function () {
     function Router(url, method) {
@@ -122,11 +123,10 @@ var Router = /** @class */ (function () {
         // todo: use this.url to help match route
         while (cur && !matches(req, cur))
             cur = cloned.shift();
+        d('is router:', cur instanceof Router);
         if (!cur)
             notfound(req, res);
         else
-            // todo: next()
-            // let idx = this.routes.indexOf(cur)
             cur.func(req, res, this.next(req, res, cloned));
     };
     return Router;

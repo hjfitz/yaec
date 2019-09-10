@@ -18,11 +18,11 @@ interface Route {
 	func: Middleware
 }
 
-const matches = (req: any, mw?: Route): boolean => {
+const matches = (req: any, mw: Route): boolean => {
 	d('handling match')
 	if (!mw) return false
-	d(req.url, mw.url)
-	d(req.method, mw.method)
+	d('req, mw', req.url, mw.url)
+	d('req, mw', req.method, mw.method)
 	const urlMatches = (req.url === mw.url)
 	const methodMatches = (req.method === mw.method) || mw.method === '*'
 	d(methodMatches && urlMatches)
@@ -30,6 +30,8 @@ const matches = (req: any, mw?: Route): boolean => {
 }
 
 const notfound: Middleware = (req, res) => res.sendStatus(404)
+
+const makeUrl = () => {}
 
 // router can be a route as router.func should handle sub-routing
 export class Router implements Route {
@@ -57,11 +59,11 @@ export class Router implements Route {
 		while (cur && !matches(req, cur))
 			cur = cloned.shift()
 
+		d('is router:', cur instanceof Router)
+
 		if (!cur)
 			notfound(req, res)
 		else
-			// todo: next()
-			// let idx = this.routes.indexOf(cur)
 			cur.func(req, res, this.next(req, res, cloned))
 	}
 
