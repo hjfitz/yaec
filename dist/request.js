@@ -2,88 +2,60 @@
 /**
  * BIG TODO: REFACTOR
  */
-var __spreadArrays = (this && this.__spreadArrays) || function () {
-    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
-    for (var r = Array(s), k = 0, i = 0; i < il; i++)
-        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
-            r[k] = a[j];
-    return r;
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var http_1 = __importDefault(require("http"));
 var debug_1 = __importDefault(require("debug"));
 var querystring_1 = __importDefault(require("querystring"));
-var d = debug_1.default('rqst');
-function parseBoundary(type, body) {
-    d('parsing form with boundary');
-    var _a = type.split('='), delim = _a[1];
-    d("delim: " + delim);
-    var splitBody = body.split('\n').map(function (line) { return line.replace(/\r/g, ''); });
-    var keySplit = [];
-    var cur = [];
-    for (var i = 0; i < splitBody.length; i += 1) {
-        var line = splitBody[i];
-        d(line);
-        if (line.includes(delim)) {
-            if (cur.length)
-                keySplit.push(__spreadArrays(cur));
-            cur.length = 0;
-        }
-        else {
-            if (line.length)
-                cur.push(line);
-        }
-    }
-    var parsed = keySplit.map(function (pair) {
-        var _a;
-        var unparsedKey = pair[0], rest = pair.slice(1);
-        var key = unparsedKey
-            .replace('Content-Disposition: form-data name=', '')
-            .replace(/"/g, '');
-        return _a = {}, _a[key] = rest.join(), _a;
-    }).reduce(function (acc, curr) { return Object.assign(acc, curr); }, {});
-    return parsed;
+var util_1 = require("./util");
+var d = debug_1.default('mtws:request');
+function inherit(obj) {
+    var _this = this;
+    Object.keys(obj).forEach(function (key) { return _this[key] = obj[key]; });
 }
-exports.parseBoundary = parseBoundary;
-var parseCookies = function (dough) { return dough.map(function (pair) {
-    var _a;
-    var _b = pair.split('='), key = _b[0], vals = _b.slice(1);
-    return _a = {}, _a[key] = vals.join('='), _a;
-})
-    .reduce(function (acc, cur) { return Object.assign(acc, cur); }, {}); };
-var Request = /** @class */ (function () {
-    function Request(options) {
-        this.pathname = options.pathname || 'unknown';
-        this.url = options.pathname || 'unknown';
-        this.headers = options.headers;
-        this.method = options.method || 'unknown';
-        this.code = options.statusCode || 200;
-        this.query = options.query;
-        this._req = options.req;
-        if (Array.isArray(this.headers.cookie)) {
-            this.cookies = parseCookies(this.headers.cookie);
-        }
-        else if (typeof this.headers.cookie === 'string') {
-            this.cookies = parseCookies(this.headers.cookie.split(''));
-        }
-        else {
-            this.cookies = {};
-        }
-        d("Request made to " + this.pathname);
+var Request = /** @class */ (function (_super) {
+    __extends(Request, _super);
+    function Request(request) {
+        var _this = _super.call(this, request.req.connection) || this;
+        _this.cookies = {};
+        _this.payload = '';
+        _this.req = request.req;
+        inherit.bind(_this)(request.req);
+        // this.headers = request.req.headers
+        // this.url = request.req.url
+        // this.pathname = this.url
+        // this.method = request.req.method
+        if (request.req.headers.cookie)
+            _this.cookies = util_1.parseCookies(request.req.headers.cookie);
+        d("Request made to " + request.pathname);
+        return _this;
     }
     Request.prototype.handleIncomingStream = function (type) {
         var _this = this;
         return new Promise(function (res) {
             var body = '';
-            _this._req.on('data', function (data) {
+            _this.req.on('data', function (data) {
                 // kill early if we're getting too much info
                 if (body.length > 1e6)
-                    _this._req.connection.destroy();
+                    _this.req.connection.destroy();
                 body += data;
             });
-            _this._req.on('end', function () {
+            _this.req.on('end', function () {
                 _this.parseData(body, type);
                 res(_this);
             });
@@ -109,7 +81,7 @@ var Request = /** @class */ (function () {
             }
         }
         else if (type.includes('boundary') || body.includes('Boundary')) {
-            this.payload = parseBoundary(type, body);
+            this.payload = util_1.parseBoundary(type, body);
         }
         else if (type === 'application/x-www-form-urlencoded') {
             d('parsing form x-www-formdata');
@@ -132,5 +104,5 @@ var Request = /** @class */ (function () {
         }
     };
     return Request;
-}());
+}(http_1.default.IncomingMessage));
 exports.default = Request;

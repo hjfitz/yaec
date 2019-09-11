@@ -3,49 +3,40 @@ import debug from 'debug'
 
 import Request from './request'
 
-const d = debug('resp')
+const d = debug('mtws:response')
 
 export default class Response {
 	private hRes: http.ServerResponse
 	private hReq: Request
+	code: number = 200
+	encoding: string = 'utf8'
+	type: string = 'text/plain'
 
 	constructor(res: http.ServerResponse, req: Request) {
 		this.hRes = res
 		this.hReq = req
 		// default to plaintext response
 		this.hRes.setHeader('content-type', 'text/plain')
-		this.hRes.setHeader('Set-Cookie', ['set-by=ts-server'])
+		this.hRes.setHeader('Set-Cookie', ['server=mtws'])
 	}
 
-	/**
-	 * Send some data, and once it's flushed - end the connection
-	 * @param payload a string of data to send
-	 * @param encoding encoding to use
-	 */
-	send(
-		payload: string,
-		type: string = 'text/plain',
-		encoding: string = 'utf8',
-		code: number = 200,
-	): void {
-		d(`sending ${type}; data: ${payload}`)
-		this.hRes.writeHead(code, {'Content-Type': type})
-		this.hRes.write(payload, encoding, () => {
+
+	send(payload: string): void {
+		d(`sending ${this.type}; data: ${payload}`)
+		this.hRes.writeHead(this.code, {'Content-Type': this.type})
+		this.hRes.write(payload, this.encoding, () => {
 			this.hRes.end('\n')
-			this.hReq._req.connection.destroy()
+			this.hReq.req.connection.destroy()
 		})
 	}
 
-	json = (payload: object): void => this.send(JSON.stringify(payload), 'application/json')
+	json(payload: object): void {
+		this.type = 'application/json'
+		this.send(JSON.stringify(payload))
+	}
 
-	/**
-	 * Set a message and code, and end the connection
-	 * @param code HTTP code to send
-	 * @param message Message to optionally send
-	 */
 	sendStatus(code: number, message?: string): void {
-		if (message)
-			this.hRes.statusMessage = message
+		if (message) this.hRes.statusMessage = message
 		d(`Setting code to ${code}`)
 		this.hRes.statusCode = code
 		this.hRes.end()

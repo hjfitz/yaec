@@ -4,96 +4,52 @@
 
 import http from 'http'
 import debug from 'debug'
-import querystring from 'querystring'
+import querystring, {ParsedUrlQuery} from 'querystring'
+import {parseCookies, parseBoundary, AmbigObject} from './util'
 
-const d = debug('rqst')
-
-export function parseBoundary(type: string, body: string): object {
-	d('parsing form with boundary')
-	const [, delim]: string[] = type.split('=')
-	d(`delim: ${delim}`)
-	const splitBody: string[] = body.split('\n').map((line) => line.replace(/\r/g, ''))
-	const keySplit: string[][] = []
-	const cur: string[] = []
-
-	for (let i: number = 0; i < splitBody.length; i += 1) {
-		const line: string = splitBody[i]
-		d(line)
-		if (line.includes(delim)) {
-			if (cur.length) keySplit.push([...cur])
-			cur.length = 0
-		} else {
-			if (line.length) cur.push(line)
-		}
-	}
-
-	const parsed: object = keySplit.map((pair: string[]) => {
-		const [unparsedKey, ...rest]: string[] = pair
-		const key: string = unparsedKey
-			.replace('Content-Disposition: form-data name=', '')
-			.replace(/"/g, '')
-		return {[key]: rest.join()}
-	}).reduce((acc, curr) => Object.assign(acc, curr), {})
-
-	return parsed
-}
-
-
-const parseCookies = (dough: string[]): Object => dough.map((pair: string) => {
-	const [key, ...vals]: string[] = pair.split('=')
-	return {[key]: vals.join('=')}
-})
-	.reduce((acc: Object, cur: { [x: string]: string }) => Object.assign(acc, cur), {})
+const d = debug('mtws:request')
 
 interface IRequest {
-	pathname?: string
-	headers: http.IncomingHttpHeaders
-	method?: string
-	statusCode: number | undefined
 	req: http.IncomingMessage
-	query: querystring.ParsedUrlQuery
-	payload?: object
+	pQuery: ParsedUrlQuery
+	pathname?: string
 }
 
-class Request {
-	_req: http.IncomingMessage
-	pathname: string
-	url: string
-	method: string
-	headers: http.IncomingHttpHeaders
-	code: number
-	query: querystring.ParsedUrlQuery
-	payload?: object | string
-	cookies: Object
+function inherit(obj: http.IncomingMessage) {
+	Object.keys(obj).forEach((key: string) => this[key] = obj[key])
+}
 
-	constructor(options: IRequest) {
-		this.pathname = options.pathname || 'unknown'
-		this.url = options.pathname || 'unknown'
-		this.headers = options.headers
-		this.method = options.method || 'unknown'
-		this.code = options.statusCode || 200
-		this.query = options.query
-		this._req = options.req
-		if (Array.isArray(this.headers.cookie)) {
-			this.cookies = parseCookies(this.headers.cookie)
-		} else if (typeof this.headers.cookie === 'string') {
-			this.cookies = parseCookies(this.headers.cookie.split(''))
-		} else {
-			this.cookies = {}
-		}
+class Request extends http.IncomingMessage {
+	req: http.IncomingMessage
+	cookies: AmbigObject = {}
+	payload: ParsedUrlQuery | AmbigObject | string = ''
+	pathname?: string
 
-		d(`Request made to ${this.pathname}`)
+
+	constructor(request: IRequest) {
+		super(request.req.connection)
+		this.req = request.req
+		inherit.bind(this)(request.req)
+		// this.headers = request.req.headers
+		// this.url = request.req.url
+		// this.pathname = this.url
+		// this.method = request.req.method
+
+		if (request.req.headers.cookie)
+			this.cookies = parseCookies(request.req.headers.cookie)
+
+		d(`Request made to ${request.pathname}`)
 	}
 
 	handleIncomingStream(type?: string): Promise<Request> {
 		return new Promise((res) => {
 			let body: string = ''
-			this._req.on('data', (data) => {
+			this.req.on('data', (data) => {
 				// kill early if we're getting too much info
-				if (body.length > 1e6) this._req.connection.destroy()
+				if (body.length > 1e6) this.req.connection.destroy()
 				body += data
 			})
-			this._req.on('end', () => {
+			this.req.on('end', () => {
 				this.parseData(body, type)
 				res(this)
 			})

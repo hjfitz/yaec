@@ -6,7 +6,7 @@ import debug from 'debug'
 import Request from './request'
 import Response from './response'
 
-const d = debug('serv')
+const d = debug('mtws:server')
 
 
 type Middleware = (req: any, res: any, next?: Middleware) => void | Promise<void>
@@ -31,7 +31,6 @@ const matches = (req: any, mw: Route): boolean => {
 
 const notfound: Middleware = (req, res) => res.sendStatus(404)
 
-const makeUrl = () => {}
 
 // router can be a route as router.func should handle sub-routing
 export class Router implements Route {
@@ -122,21 +121,19 @@ class Server extends Router {
 	// todo: add stack to req
 	static parseRequest(req: http.IncomingMessage): Promise<Request> {
 		// get what we're interested from the pure request
-		const {url, headers, method, statusCode} = req
-		const {query, pathname} = parse(url || '')
+		const {query, pathname} = parse(req.url || '')
 		const pQuery = querystring.parse(query || '')
 
-
 		d('beginning request parse')
-		const parsedRequest = new Request({statusCode, pathname, headers, method, req, query: pQuery})
+		const parsedRequest = new Request({req, pathname, pQuery})
 
 		// attempt to parse incoming data
-		d(`content type: ${headers['content-type']}`)
-		if (!('content-type' in headers)) return Promise.resolve(parsedRequest)
+		d(`content type: ${req.headers['content-type']}`)
+		if (!('content-type' in req.headers)) return Promise.resolve(parsedRequest)
 
 		d('parsing incoming stream...')
 		// handleIncomingStream returns itself - resolve after handling
-		return parsedRequest.handleIncomingStream(headers['content-type'])
+		return parsedRequest.handleIncomingStream(req.headers['content-type'])
 	}
 }
 

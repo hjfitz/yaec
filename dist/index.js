@@ -65,7 +65,7 @@ var querystring_1 = __importDefault(require("querystring"));
 var debug_1 = __importDefault(require("debug"));
 var request_1 = __importDefault(require("./request"));
 var response_1 = __importDefault(require("./response"));
-var d = debug_1.default('serv');
+var d = debug_1.default('mtws:server');
 var matches = function (req, mw) {
     d('handling match');
     if (!mw)
@@ -78,7 +78,6 @@ var matches = function (req, mw) {
     return methodMatches && urlMatches;
 };
 var notfound = function (req, res) { return res.sendStatus(404); };
-var makeUrl = function () { };
 // router can be a route as router.func should handle sub-routing
 var Router = /** @class */ (function () {
     function Router(url, method) {
@@ -165,18 +164,17 @@ var Server = /** @class */ (function (_super) {
     // todo: add stack to req
     Server.parseRequest = function (req) {
         // get what we're interested from the pure request
-        var url = req.url, headers = req.headers, method = req.method, statusCode = req.statusCode;
-        var _a = url_1.parse(url || ''), query = _a.query, pathname = _a.pathname;
+        var _a = url_1.parse(req.url || ''), query = _a.query, pathname = _a.pathname;
         var pQuery = querystring_1.default.parse(query || '');
         d('beginning request parse');
-        var parsedRequest = new request_1.default({ statusCode: statusCode, pathname: pathname, headers: headers, method: method, req: req, query: pQuery });
+        var parsedRequest = new request_1.default({ req: req, pathname: pathname, pQuery: pQuery });
         // attempt to parse incoming data
-        d("content type: " + headers['content-type']);
-        if (!('content-type' in headers))
+        d("content type: " + req.headers['content-type']);
+        if (!('content-type' in req.headers))
             return Promise.resolve(parsedRequest);
         d('parsing incoming stream...');
         // handleIncomingStream returns itself - resolve after handling
-        return parsedRequest.handleIncomingStream(headers['content-type']);
+        return parsedRequest.handleIncomingStream(req.headers['content-type']);
     };
     return Server;
 }(Router));
