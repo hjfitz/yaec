@@ -21,6 +21,7 @@ function inherit(obj: http.IncomingMessage) {
 
 class Request extends http.IncomingMessage {
 	req: http.IncomingMessage
+	originalUrl?: string
 	cookies: AmbigObject = {}
 	payload: ParsedUrlQuery | AmbigObject | string = ''
 	pathname?: string
@@ -29,6 +30,7 @@ class Request extends http.IncomingMessage {
 	constructor(request: IRequest) {
 		super(request.req.connection)
 		this.req = request.req
+		this.originalUrl = request.pathname
 		inherit.bind(this)(request.req)
 		// this.headers = request.req.headers
 		// this.url = request.req.url

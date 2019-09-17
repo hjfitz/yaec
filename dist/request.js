@@ -35,6 +35,7 @@ var Request = /** @class */ (function (_super) {
         _this.cookies = {};
         _this.payload = '';
         _this.req = request.req;
+        _this.originalUrl = request.pathname;
         inherit.bind(_this)(request.req);
         // this.headers = request.req.headers
         // this.url = request.req.url

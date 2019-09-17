@@ -5,7 +5,7 @@ const app = sv.default()
 
 const sr = new sv.Router('/', 'GET')
 
-sr.get('/oi', (req, res, next) => {
+sr.get('/i', (req, res, next) => {
 	console.log('next pass 1')
 	next()
 })
@@ -14,10 +14,10 @@ sr.get('/oi', (req, res, next) => {
 	next()
 })
 
-sr.get('/oi', (req, res) => res.send('router get'))
+sr.get('/oii', (req, res) => res.send('router get'))
 
 // app.subroute(sr)
-app.get('/foo', sr)
+app.get('/fo', sr)
 app.get('/', (req, res) => {
 	res.send('oi')
 })

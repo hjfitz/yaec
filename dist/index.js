@@ -66,17 +66,6 @@ var debug_1 = __importDefault(require("debug"));
 var request_1 = __importDefault(require("./request"));
 var response_1 = __importDefault(require("./response"));
 var d = debug_1.default('mtws:server');
-var matches = function (req, mw) {
-    d('handling match');
-    if (!mw)
-        return false;
-    d('req, mw', req.url, mw.url);
-    d('req, mw', req.method, mw.method);
-    var urlMatches = (req.url === mw.url);
-    var methodMatches = (req.method === mw.method) || mw.method === '*';
-    d(methodMatches && urlMatches);
-    return methodMatches && urlMatches;
-};
 var notfound = function (req, res) { return res.sendStatus(404); };
 // router can be a route as router.func should handle sub-routing
 var Router = /** @class */ (function () {
@@ -131,6 +120,20 @@ var Router = /** @class */ (function () {
     return Router;
 }());
 exports.Router = Router;
+var matches = function (req, mw) {
+    d('handling match');
+    if (!mw)
+        return false;
+    if (mw instanceof Router) {
+        d('handling router');
+        req.url = req.url.replace(mw.url, '');
+        return true;
+    }
+    var urlMatches = (req.url === mw.url);
+    var methodMatches = (req.method === mw.method) || mw.method === '*';
+    d(methodMatches && urlMatches);
+    return methodMatches && urlMatches;
+};
 var Server = /** @class */ (function (_super) {
     __extends(Server, _super);
     function Server() {

@@ -18,16 +18,7 @@ interface Route {
 	func: Middleware
 }
 
-const matches = (req: any, mw: Route): boolean => {
-	d('handling match')
-	if (!mw) return false
-	d('req, mw', req.url, mw.url)
-	d('req, mw', req.method, mw.method)
-	const urlMatches = (req.url === mw.url)
-	const methodMatches = (req.method === mw.method) || mw.method === '*'
-	d(methodMatches && urlMatches)
-	return methodMatches && urlMatches
-}
+
 
 const notfound: Middleware = (req, res) => res.sendStatus(404)
 
@@ -90,6 +81,20 @@ export class Router implements Route {
 	path = this.add.bind(this, 'PATCH')
 	delete = this.add.bind(this, 'DELETE')
 	head = this.add.bind(this, 'HEAD')
+}
+
+const matches = (req: any, mw: Route): boolean => {
+	d('handling match')
+	if (!mw) return false
+	if (mw instanceof Router) {
+		d('handling router')
+		req.url = req.url.replace(mw.url, '')
+		return true
+	}
+	const urlMatches = (req.url === mw.url)
+	const methodMatches = (req.method === mw.method) || mw.method === '*'
+	d(methodMatches && urlMatches)
+	return methodMatches && urlMatches
 }
 
 
