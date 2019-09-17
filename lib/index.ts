@@ -2,6 +2,7 @@ import http from 'http'
 import {parse} from 'url'
 import querystring from 'querystring'
 import debug from 'debug'
+import path from 'path'
 
 import Request from './request'
 import Response from './response'
@@ -18,9 +19,25 @@ interface Route {
 	func: Middleware
 }
 
-
-
 const notfound: Middleware = (req, res) => res.sendStatus(404)
+
+const matches = (req: any, mw: Route): boolean => {
+	d('handling match')
+	if (!mw) return false
+	// eslint-disable-next-line no-use-before-define
+	if (mw instanceof Router) {
+		d('handling router')
+		// todo: this is very broken
+		// req.url.indexOf(mw.url + '/') === 0 (shows it's a sub-route)
+		// req.url = req.url.replace(mw.url, '')
+		d(req.url, mw.url)
+		return true
+	}
+	const urlMatches = (req.url === mw.url)
+	const methodMatches = (req.method === mw.method) || mw.method === '*'
+	d(methodMatches && urlMatches)
+	return methodMatches && urlMatches
+}
 
 
 // router can be a route as router.func should handle sub-routing
@@ -29,7 +46,7 @@ export class Router implements Route {
 	method: string
 	url: string
 	constructor(url: string, method: string) {
-		this.url = url || 'none'
+		this.url = path.normalize(`/${url}`) || 'none' // ensure path follows /foo/bar etc
 		this.method = method || 'none'
 	}
 
@@ -45,7 +62,7 @@ export class Router implements Route {
 		// shallow clone current routes
 		const cloned = [...this.routes]
 		let cur = cloned.shift()
-		// todo: use this.url to help match route
+
 		while (cur && !matches(req, cur))
 			cur = cloned.shift()
 
@@ -64,7 +81,7 @@ export class Router implements Route {
 	add = (method: string, url: string, func: Middleware): void => {
 		if (func instanceof Router) {
 			d('subrouting...')
-			func.url = url
+			func.url = path.normalize(`/${url}`)
 			func.method = method
 			this.subroute(func)
 			return
@@ -82,21 +99,6 @@ export class Router implements Route {
 	delete = this.add.bind(this, 'DELETE')
 	head = this.add.bind(this, 'HEAD')
 }
-
-const matches = (req: any, mw: Route): boolean => {
-	d('handling match')
-	if (!mw) return false
-	if (mw instanceof Router) {
-		d('handling router')
-		req.url = req.url.replace(mw.url, '')
-		return true
-	}
-	const urlMatches = (req.url === mw.url)
-	const methodMatches = (req.method === mw.method) || mw.method === '*'
-	d(methodMatches && urlMatches)
-	return methodMatches && urlMatches
-}
-
 
 class Server extends Router {
 	private server: http.Server
@@ -133,12 +135,14 @@ class Server extends Router {
 		const parsedRequest = new Request({req, pathname, pQuery})
 
 		// attempt to parse incoming data
-		d(`content type: ${req.headers['content-type']}`)
-		if (!('content-type' in req.headers)) return Promise.resolve(parsedRequest)
+		const ctType: string | undefined = req.headers['content-type']
+		d(`content type: ${ctType}`)
+
+		if (typeof ctType === 'undefined') return Promise.resolve(parsedRequest)
 
 		d('parsing incoming stream...')
 		// handleIncomingStream returns itself - resolve after handling
-		return parsedRequest.handleIncomingStream(req.headers['content-type'])
+		return parsedRequest.handleIncomingStream(ctType)
 	}
 }
 

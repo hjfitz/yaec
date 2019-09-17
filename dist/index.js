@@ -63,10 +63,29 @@ var http_1 = __importDefault(require("http"));
 var url_1 = require("url");
 var querystring_1 = __importDefault(require("querystring"));
 var debug_1 = __importDefault(require("debug"));
+var path_1 = __importDefault(require("path"));
 var request_1 = __importDefault(require("./request"));
 var response_1 = __importDefault(require("./response"));
 var d = debug_1.default('mtws:server');
 var notfound = function (req, res) { return res.sendStatus(404); };
+var matches = function (req, mw) {
+    d('handling match');
+    if (!mw)
+        return false;
+    // eslint-disable-next-line no-use-before-define
+    if (mw instanceof Router) {
+        d('handling router');
+        // todo: this is very broken
+        // req.url.indexOf(mw.url + '/') === 0 (shows it's a sub-route)
+        // req.url = req.url.replace(mw.url, '')
+        d(req.url, mw.url);
+        return true;
+    }
+    var urlMatches = (req.url === mw.url);
+    var methodMatches = (req.method === mw.method) || mw.method === '*';
+    d(methodMatches && urlMatches);
+    return methodMatches && urlMatches;
+};
 // router can be a route as router.func should handle sub-routing
 var Router = /** @class */ (function () {
     function Router(url, method) {
@@ -78,7 +97,7 @@ var Router = /** @class */ (function () {
         this.add = function (method, url, func) {
             if (func instanceof Router) {
                 d('subrouting...');
-                func.url = url;
+                func.url = path_1.default.normalize("/" + url);
                 func.method = method;
                 _this.subroute(func);
                 return;
@@ -93,7 +112,7 @@ var Router = /** @class */ (function () {
         this.path = this.add.bind(this, 'PATCH');
         this.delete = this.add.bind(this, 'DELETE');
         this.head = this.add.bind(this, 'HEAD');
-        this.url = url || 'none';
+        this.url = path_1.default.normalize("/" + url) || 'none'; // ensure path follows /foo/bar etc
         this.method = method || 'none';
     }
     Router.prototype.next = function (req, res, routes) {
@@ -108,7 +127,6 @@ var Router = /** @class */ (function () {
         // shallow clone current routes
         var cloned = __spreadArrays(this.routes);
         var cur = cloned.shift();
-        // todo: use this.url to help match route
         while (cur && !matches(req, cur))
             cur = cloned.shift();
         d('is router:', cur instanceof Router);
@@ -120,20 +138,6 @@ var Router = /** @class */ (function () {
     return Router;
 }());
 exports.Router = Router;
-var matches = function (req, mw) {
-    d('handling match');
-    if (!mw)
-        return false;
-    if (mw instanceof Router) {
-        d('handling router');
-        req.url = req.url.replace(mw.url, '');
-        return true;
-    }
-    var urlMatches = (req.url === mw.url);
-    var methodMatches = (req.method === mw.method) || mw.method === '*';
-    d(methodMatches && urlMatches);
-    return methodMatches && urlMatches;
-};
 var Server = /** @class */ (function (_super) {
     __extends(Server, _super);
     function Server() {
@@ -172,12 +176,13 @@ var Server = /** @class */ (function (_super) {
         d('beginning request parse');
         var parsedRequest = new request_1.default({ req: req, pathname: pathname, pQuery: pQuery });
         // attempt to parse incoming data
-        d("content type: " + req.headers['content-type']);
-        if (!('content-type' in req.headers))
+        var ctType = req.headers['content-type'];
+        d("content type: " + ctType);
+        if (typeof ctType === 'undefined')
             return Promise.resolve(parsedRequest);
         d('parsing incoming stream...');
         // handleIncomingStream returns itself - resolve after handling
-        return parsedRequest.handleIncomingStream(req.headers['content-type']);
+        return parsedRequest.handleIncomingStream(ctType);
     };
     return Server;
 }(Router));

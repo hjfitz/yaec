@@ -1,9 +1,10 @@
 import debug from 'debug'
+import querystring from 'querystring'
 
 const d = debug('mtws:util')
 
 export interface AmbigObject {
-	[key: string]: string
+	[key: string]: any
 }
 
 export function parseBoundary(type: string, body: string): AmbigObject {
@@ -36,8 +37,27 @@ export function parseBoundary(type: string, body: string): AmbigObject {
 	return parsed
 }
 
-export const parseCookies = (dough: string): {[key: string]: string} => dough.split('').map((pair: string) => {
-	const [key, ...vals]: string[] = pair.split('=')
-	return {[key]: vals.join('=')}
-})
-	.reduce((acc: Object, cur: { [x: string]: string }) => Object.assign(acc, cur), {})
+export function parseCookies(dough: string): AmbigObject {
+	return dough.split('; ').map((pair: string) => {
+		const [key, ...vals]: string[] = pair.split('=')
+		const val = vals.join('=')
+		return {[key]: val}
+	})
+		.reduce((acc, cur) => ({...acc, ...cur}), {})
+}
+
+type ParserFunc = (tp: string, bd: string) => any
+
+function getBodyParser(type: string): ParserFunc {
+	if (type.includes('application/json')) return (tp: string, bd: string) => JSON.parse(bd)
+	if (type.includes('boundary')) return (tp: string, bd: string) => parseBoundary(tp, bd)
+	if (type.includes('x-www-form-urlencoded')) return (tp: string, bd: string) => querystring.parse(bd)
+	return (bd: string) => bd
+}
+
+export function parseData(body: string, type: string): any {
+	d('Parsing: ', {body})
+	d('type: ', {type})
+	const parser: ParserFunc = getBodyParser(type)
+	return parser(type, body)
+}
