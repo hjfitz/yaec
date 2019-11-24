@@ -25,7 +25,7 @@ export default class Response {
 		d(`sending ${this.type}; data: ${payload}`)
 		this.hRes.writeHead(this.code, {'Content-Type': this.type})
 		this.hRes.write(payload, this.encoding, () => {
-			this.hRes.end('\n')
+			this.hRes.end('')
 			this.hReq.req.connection.destroy()
 		})
 	}

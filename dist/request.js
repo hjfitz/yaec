@@ -36,6 +36,7 @@ var Request = /** @class */ (function (_super) {
         _this.payload = '';
         _this.req = request.req;
         _this.originalUrl = request.pathname;
+        _this.handleIncomingStream = _this.handleIncomingStream.bind(_this);
         inherit.bind(_this)(request.req);
         if (request.req.headers.cookie)
             _this.cookies = parsers_1.parseCookies(request.req.headers.cookie);
@@ -54,6 +55,7 @@ var Request = /** @class */ (function (_super) {
             });
             _this.req.on('end', function () {
                 _this.payload = parsers_1.parseData(body, type);
+                d('parsed payload: ', _this.payload);
                 res(_this);
             });
         });

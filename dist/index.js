@@ -67,19 +67,35 @@ var path_1 = __importDefault(require("path"));
 var request_1 = __importDefault(require("./request"));
 var response_1 = __importDefault(require("./response"));
 var d = debug_1.default('mtws:server');
-var notfound = function (req, res) { return res.sendStatus(404); };
+var notfound = function (_, res) { return res.sendStatus(404); };
 var matches = function (req, mw) {
     d('handling match');
     if (!mw)
         return false;
+    // lolhoisting
     // eslint-disable-next-line no-use-before-define
     if (mw instanceof Router) {
         d('handling router');
-        // todo: this is very broken
-        // req.url.indexOf(mw.url + '/') === 0 (shows it's a sub-route)
-        // req.url = req.url.replace(mw.url, '')
-        d(req.url, mw.url);
-        return true;
+        var routerUrl = mw.url;
+        var requestUrl = req.url;
+        d({ routerUrl: routerUrl, requestUrl: requestUrl });
+        // do not stress about random slashes - when paths are added, `path.normalize` is used
+        // if router url is at the beginning of the request url
+        if (requestUrl.indexOf(routerUrl) === 0) {
+            d('potentially handling subrouter');
+            // remove router url from request url
+            // short-circuit as routes may completely match
+            var repl = requestUrl.replace(routerUrl, '') || '/';
+            d('request url after replacing router url: ', { repl: repl, routerUrl: routerUrl, requestUrl: requestUrl });
+            // if the start of the new url is a /, we are at a subroute
+            if (repl[0] === '/') {
+                // remove the router url for later parsing
+                req.url = repl;
+                return true;
+            }
+        }
+        return false;
+        // todo: this (possibly) is very broken
     }
     var urlMatches = (req.url === mw.url);
     var methodMatches = (req.method === mw.method) || mw.method === '*';
@@ -109,10 +125,10 @@ var Router = /** @class */ (function () {
         this.get = this.add.bind(this, 'GET');
         this.post = this.add.bind(this, 'POST');
         this.put = this.add.bind(this, 'PUT');
-        this.path = this.add.bind(this, 'PATCH');
+        this.patch = this.add.bind(this, 'PATCH');
         this.delete = this.add.bind(this, 'DELETE');
         this.head = this.add.bind(this, 'HEAD');
-        this.url = path_1.default.normalize("/" + url) || 'none'; // ensure path follows /foo/bar etc
+        this.url = path_1.default.normalize("/" + url + "/") || 'none'; // ensure path follows /foo/bar etc
         this.method = method || 'none';
     }
     Router.prototype.next = function (req, res, routes) {

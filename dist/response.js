@@ -21,7 +21,7 @@ var Response = /** @class */ (function () {
         d("sending " + this.type + "; data: " + payload);
         this.hRes.writeHead(this.code, { 'Content-Type': this.type });
         this.hRes.write(payload, this.encoding, function () {
-            _this.hRes.end('\n');
+            _this.hRes.end('');
             _this.hReq.req.connection.destroy();
         });
     };

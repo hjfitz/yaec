@@ -6,12 +6,16 @@
   "license": "GPL-3.0",
   "private": false,
   "dependencies": {
+    "chai": "^4.2.0",
     "debug": "^4.1.1",
     "mime-types": "^2.1.24",
+    "mocha": "^6.2.2",
+    "node-fetch": "^2.6.0",
     "typescript": "^3.6.2"
   },
   "scripts": {
-    "build": "tsc --pretty --watch"
+    "build": "tsc --pretty --watch",
+    "test": "mocha test/"
   },
   "devDependencies": {
     "@types/debug": "^4.1.5",

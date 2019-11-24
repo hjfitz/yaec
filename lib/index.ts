@@ -19,19 +19,35 @@ interface Route {
 	func: Middleware
 }
 
-const notfound: Middleware = (req, res) => res.sendStatus(404)
+const notfound: Middleware = (_, res) => res.sendStatus(404)
 
 const matches = (req: any, mw: Route): boolean => {
 	d('handling match')
 	if (!mw) return false
+	// lolhoisting
 	// eslint-disable-next-line no-use-before-define
 	if (mw instanceof Router) {
 		d('handling router')
-		// todo: this is very broken
-		// req.url.indexOf(mw.url + '/') === 0 (shows it's a sub-route)
-		// req.url = req.url.replace(mw.url, '')
-		d(req.url, mw.url)
-		return true
+		const routerUrl: string = mw.url
+		const requestUrl: string = req.url
+		d({routerUrl, requestUrl})
+		// do not stress about random slashes - when paths are added, `path.normalize` is used
+		// if router url is at the beginning of the request url
+		if (requestUrl.indexOf(routerUrl) === 0) {
+			d('potentially handling subrouter')
+			// remove router url from request url
+			// short-circuit as routes may completely match
+			const repl: string = requestUrl.replace(routerUrl, '') || '/'
+			d('request url after replacing router url: ', {repl, routerUrl, requestUrl})
+			// if the start of the new url is a /, we are at a subroute
+			if (repl[0] === '/') {
+				// remove the router url for later parsing
+				req.url = repl
+				return true
+			}
+		}
+		return false
+		// todo: this (possibly) is very broken
 	}
 	const urlMatches = (req.url === mw.url)
 	const methodMatches = (req.method === mw.method) || mw.method === '*'
@@ -46,7 +62,7 @@ export class Router implements Route {
 	method: string
 	url: string
 	constructor(url: string, method: string) {
-		this.url = path.normalize(`/${url}`) || 'none' // ensure path follows /foo/bar etc
+		this.url = path.normalize(`/${url}/`) || 'none' // ensure path follows /foo/bar etc
 		this.method = method || 'none'
 	}
 
@@ -95,7 +111,7 @@ export class Router implements Route {
 	get = this.add.bind(this, 'GET')
 	post = this.add.bind(this, 'POST')
 	put = this.add.bind(this, 'PUT')
-	path = this.add.bind(this, 'PATCH')
+	patch = this.add.bind(this, 'PATCH')
 	delete = this.add.bind(this, 'DELETE')
 	head = this.add.bind(this, 'HEAD')
 }

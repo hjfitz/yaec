@@ -32,6 +32,7 @@ class Request extends http.IncomingMessage {
 		super(request.req.connection)
 		this.req = request.req
 		this.originalUrl = request.pathname
+		this.handleIncomingStream = this.handleIncomingStream.bind(this)
 		inherit.bind(this)(request.req)
 
 		if (request.req.headers.cookie)
@@ -50,6 +51,7 @@ class Request extends http.IncomingMessage {
 			})
 			this.req.on('end', () => {
 				this.payload = parseData(body, type)
+				d('parsed payload: ', this.payload)
 				res(this)
 			})
 		})
