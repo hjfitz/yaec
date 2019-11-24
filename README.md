@@ -1,6 +1,6 @@
-# todo
-- [ ] cleanup of old relay code
-- [ ] respond to a request
-- [ ] sub-routers
-- [ ] next()
+# Roadmap
+- [x] cleanup of old relay code
+- [x] respond to a request
+- [x] sub-routers
+- [x] next()
 - [ ] perf?
